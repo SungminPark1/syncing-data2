@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<style>
+		#main{
+	        position:absolute;
+	        z-index: 0;
+	        left: 10px;
+	        top: 10px;
+	        box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+    	}
+		</style>
+	    <script src="/socket.io/socket.io.js"></script>
+	    <script>
+	    	var socket;
+	    	var canvas;
+	    	var ctx;
+	    	var time;
+	    	var updated = false;
+
+			var user = {
+				name: 'user' + Math.floor((Math.random()*1000) + 1)
+			}
+
+	    	var players = {};
+	    	var arrayBullets = [];
+
+			function init() {
+				socket = io.connect();
+				canvas = document.querySelector('#main');
+				ctx = canvas.getContext('2d');
+
+				canvas.setAttribute( 'width',  500);
+    			canvas.setAttribute( 'height', 500);
+
+				setupSocket();
+				setInterval(update, 1000/60);
+			}
+
+			// sets up the socket
+			function setupSocket(){
+				socket.emit('join', {user: user});
+
+				// get other clients data from server
+				socket.on('initData', function(data){
+					players = data.players;
+					arrayBullets = data.arrayBullets;
+					console.log(arrayBullets);
+				});
+
+				// updates player movements
+				socket.on('updatePlayers', function(data){
+					players = data.players;
+					draw();
+				});
+
+				// updates bullets
+				socket.on('updateBullets', function(data){
+					arrayBullets = data.arrayBullets;
+					draw();
+				});
+
+				var pos = {
+					x: Math.floor(Math.random()*451),
+					y: Math.floor(Math.random()*451),
+				};
+
+				var color = {
+					r: Math.floor(Math.random()*256),
+					g: Math.floor(Math.random()*256),
+					b: Math.floor(Math.random()*256)
+				};
+
+				user.pos = pos;
+				user.radius = 20;
+				user.color = color;
+				user.hit = 0;
+
+				socket.emit('createPlayer', {
+					name: user.name,
+					pos: user.pos,
+					radius: user.radius,
+					color: user.color,
+					hit: 0
+				});
+			}
+
+			// update
+			function update(){
+				var now = new Date().getTime(),
+				//in seconds
+       			dt = (now - time)/1000;
+ 
+    			time = now;
+
+
+				updated = false;
+
+				if(myKeys.keydown[myKeys.KEYBOARD.KEY_W] == true){
+					user.pos.y += -100 * dt;
+					updated = true;
+				}
+				if(myKeys.keydown[myKeys.KEYBOARD.KEY_A] == true){
+					user.pos.x += -100 * dt;
+					updated = true;
+				}
+				if(myKeys.keydown[myKeys.KEYBOARD.KEY_S] == true){
+					user.pos.y += 100 * dt;
+					updated = true;
+				}
+				if(myKeys.keydown[myKeys.KEYBOARD.KEY_D] == true){
+					user.pos.x += 100 * dt;
+					updated = true;
+				}
+
+				// prevent player from going out of bound
+				user.pos.x = clamp(user.pos.x, 20, 480);
+				user.pos.y = clamp(user.pos.y, 20, 480);
+
+				// if this client's user moves, send to server to update other clients
+				if(updated == true){
+					socket.emit('updatePlayer', {
+						name: user.name,
+						pos: user.pos
+					});
+				}
+
+			}
+
+			// draw other client's object
+			function draw(){
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				var keys = Object.keys(players);
+
+				for(var i = 0; i < keys.length; i++){
+					var drawCall = players[ keys[i] ];
+					if(drawCall.hit > 0){
+						ctx.fillStyle = "rgb(" + (255 - drawCall.color.r) + ", " + (255 -drawCall.color.g) + ", " + (255 -drawCall.color.b) + ")";
+					}	
+					else{		
+						ctx.fillStyle = "rgb(" + drawCall.color.r + ", " + drawCall.color.g + ", " + drawCall.color.b + ")";
+					}
+					ctx.beginPath();
+					ctx.arc(drawCall.pos.x, drawCall.pos.y, drawCall.radius, 0, Math.PI * 2, false);
+					ctx.fill();
+					ctx.stroke();
+					ctx.closePath();
+					
+				}
+
+				for(var i = 0; i<arrayBullets.length; i++){
+					ctx.fillStyle = 'black';
+					ctx.beginPath();
+					ctx.arc(arrayBullets[i].pos.x, arrayBullets[i].pos.y, arrayBullets[i].radius, 0, Math.PI*2, false);
+					ctx.fill();
+					ctx.closePath();
+				}
+			}
+
+			// Utilities
+			function clamp(val, min, max){
+				return Math.max(min, Math.min(max, val));
+			}
+
+			// Keyboard stuff
+			var myKeys = {};
+	    	myKeys.KEYBOARD = {
+				"KEY_W": 87,
+				"KEY_A": 65,
+				"KEY_S": 83,
+				"KEY_D": 68
+			};
+
+			myKeys.keydown = [];
+			// event listeners
+			window.addEventListener("keydown",function(e){
+				myKeys.keydown[e.keyCode] = true;
+			});
+				
+			window.addEventListener("keyup",function(e){
+				myKeys.keydown[e.keyCode] = false;
+			});
+
+			window.onload = init;
+		</script>
+	</head>
+
+	<body>
+		<canvas id='main'></canvas>
+		<p>move with WASD</p>
+	</body>
+</html>

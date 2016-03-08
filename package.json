@@ -1,0 +1,18 @@
+{
+  "name": "syncing-data2",
+  "version": "1.0.0",
+  "description": "Syncing Data II",
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "pretest": "jshint ./src",
+    "test": "echo 'complete'"
+  },
+  "author": "Sungmin Park",
+  "license": "ISC",
+  "dependencies": {
+    "jshint": "^2.9.1",
+    "socket.io": "^1.4.5",
+    "victor": "^1.1.0"
+  }
+}
